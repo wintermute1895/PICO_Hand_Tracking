@@ -1,4 +1,4 @@
-// VR开发文档7.3.9_最终简化修正：仅反转Z轴
+// VR开发7.3.9_最终简化修正：仅反转Z轴
 using UnityEngine;
 using Unity.XR.PXR;
 using System.Collections.Generic;
@@ -65,12 +65,12 @@ public class HandVisualizer : MonoBehaviour
                         Vector3 jointLocalPosition = new Vector3(joint.pose.Position.x, joint.pose.Position.y, joint.pose.Position.z);
                         Quaternion jointLocalRotation = new Quaternion(joint.pose.Orientation.x, joint.pose.Orientation.y, joint.pose.Orientation.z, joint.pose.Orientation.w);
 
-                        // b. 【最终关键修正】我们只反转Z轴，来将坐标系从背后翻转到身前，同时进行一次镜像操作
+                        // b. 【最终关键修正】只反转Z轴，来将坐标系从背后翻转到身前，同时进行一次镜像操作
                         jointLocalPosition.z = -jointLocalPosition.z;
 
                         // c. 由于只进行了一次镜像，旋转也需要进行镜像补偿。
                         //    在四元数中，对一个轴进行镜像，等价于将其余两个轴的旋转分量取反。
-                        //    这里我们镜像了Z轴，所以需要反转X和Y的旋转分量。
+                        //    这里镜像了Z轴，所以需要反转X和Y的旋转分量。
                         jointLocalRotation.x = -jointLocalRotation.x;
                         jointLocalRotation.y = -jointLocalRotation.y;
 

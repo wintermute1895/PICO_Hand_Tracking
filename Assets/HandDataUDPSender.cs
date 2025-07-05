@@ -1,4 +1,4 @@
-// VR开发文档7.3.11_绕过isActive检查的UDP发送器
+// VR开发7.3.11_绕过isActive检查的UDP发送器
 using UnityEngine;
 using Unity.XR.PXR;
 using System;
@@ -10,8 +10,8 @@ using System.Collections.Generic; // 需要List来动态添加有效关节点
 public class HandDataUDPSender : MonoBehaviour
 {
     [Header("Network Settings")]
-    public string pcIpAddress = "192.168.208.15"; // 请再次确认这是你PC的IP
-    public int port = 9999;
+    public string pcIpAddress = "192.168.208.15"; // PC的IP（注意是PC的而不是PICO设备的，两个设备要处于同一局域网下，用ADB看PICO的IP)
+    public int port = 9999; //这个脚本里可以添加一个逻辑处理Unity里IP输入前后的空格，但我暂时懒得写了，在Unity里只要改外部的ip就可以，不用每次打包都改代码里的ip，代码里的只是一个示例
 
     private UdpClient udpClient;
     private IPEndPoint remoteEndPoint;
@@ -53,7 +53,7 @@ public class HandDataUDPSender : MonoBehaviour
     {
         bool success = PXR_HandTracking.GetJointLocations(hand, ref jointLocations);
 
-        // 【核心修改】我们现在只检查API调用是否成功，不再检查isActive > 0
+        // 【核心修改】现在只检查API调用是否成功，不再检查isActive > 0
         if (success)
         {
             Transform playerOrigin = mainCamera.transform.parent ?? mainCamera.transform;
@@ -67,10 +67,10 @@ public class HandDataUDPSender : MonoBehaviour
                 bool isPositionValid = (joint.locationStatus & HandLocationStatus.PositionValid) != 0;
                 bool isRotationValid = (joint.locationStatus & HandLocationStatus.OrientationValid) != 0;
 
-                // 我们依然只处理数据有效的关节点
+                // 只处理数据有效的关节点
                 if (isPositionValid && isRotationValid)
                 {
-                    // --- 使用我们最终验证过的坐标变换逻辑 ---
+                    // --- 使用最终验证过的坐标变换逻辑 ---
                     Vector3 jointLocalPosition = new Vector3(joint.pose.Position.x, joint.pose.Position.y, joint.pose.Position.z);
                     Quaternion jointLocalRotation = new Quaternion(joint.pose.Orientation.x, joint.pose.Orientation.y, joint.pose.Orientation.z, joint.pose.Orientation.w);
 
@@ -96,15 +96,15 @@ public class HandDataUDPSender : MonoBehaviour
                 }
             }
 
-            // 只有当至少有一个有效关节点时，我们才发送数据包
+            // 只有当至少有一个有效关节点时才发送数据包
             if (validJoints.Count > 0)
             {
                 HandDataPacket packet = new HandDataPacket
                 {
                     hand = hand.ToString(),
-                    // 即使我们绕过了isActive，我们依然把它的原始值发出去，方便PC端了解情况
+                    // 绕过了isActive，但还是把它的原始值发出去，方便PC端了解情况
                     isActive = jointLocations.isActive > 0,
-                    // confidence = jointLocations.trackingConfidence, // 如果SDK有这个成员，可以取消注释
+                    // confidence = jointLocations.trackingConfidence, // 3.2.0版本的SDK里没有这个，先注释掉了
                     joints = validJoints.ToArray() // 将List转换为数组
                 };
 
