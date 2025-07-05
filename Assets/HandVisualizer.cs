@@ -1,4 +1,4 @@
-// VR开发文档7.3.6_兼容旧版SDK的最终坐标修正
+// VR开发文档7.3.9_最终简化修正：仅反转Z轴
 using UnityEngine;
 using Unity.XR.PXR;
 using System.Collections.Generic;
@@ -8,28 +8,23 @@ public class HandVisualizer : MonoBehaviour
     public HandType handType;
     public GameObject jointPrefab;
 
-    // 我们将再次使用主相机作为最可靠的参考点
     private Camera mainCamera;
-
     private HandJointLocations handJointLocations = new HandJointLocations();
     private List<GameObject> jointObjects = new List<GameObject>();
 
     void Start()
     {
-        // 查找主相机，并确保它被正确标记
         mainCamera = Camera.main;
         if (mainCamera == null)
         {
             UnityEngine.Debug.LogError("HandVisualizer: Main Camera not found! Please ensure your camera is tagged as 'MainCamera'.");
             return;
         }
-
         if (jointPrefab == null)
         {
             UnityEngine.Debug.LogError("HandVisualizer: Joint Prefab is not assigned!");
             return;
         }
-
         for (int i = 0; i < 26; i++)
         {
             GameObject jointObj = Instantiate(jointPrefab, this.transform);
@@ -41,16 +36,14 @@ public class HandVisualizer : MonoBehaviour
 
     void Update()
     {
-        // 如果找不到相机，则不执行任何操作
         if (mainCamera == null) return;
 
         bool success = PXR_HandTracking.GetJointLocations(handType, ref handJointLocations);
 
         if (success && handJointLocations.isActive > 0)
         {
-            // 获取相机所在的 XR Origin 或其父对象的 transform。这是我们的“玩家”在世界中的参考系。
             Transform playerOrigin = mainCamera.transform.parent;
-            if (playerOrigin == null) // 如果相机没有父对象，则以相机自身为参考
+            if (playerOrigin == null)
             {
                 playerOrigin = mainCamera.transform;
             }
@@ -64,7 +57,6 @@ public class HandVisualizer : MonoBehaviour
                     bool isPositionValid = (joint.locationStatus & HandLocationStatus.PositionValid) != 0;
                     bool isRotationValid = (joint.locationStatus & HandLocationStatus.OrientationValid) != 0;
 
-                    // 只有当位置和旋转都有效时，我们才更新
                     if (isPositionValid && isRotationValid)
                     {
                         jointObj.SetActive(true);
@@ -73,10 +65,18 @@ public class HandVisualizer : MonoBehaviour
                         Vector3 jointLocalPosition = new Vector3(joint.pose.Position.x, joint.pose.Position.y, joint.pose.Position.z);
                         Quaternion jointLocalRotation = new Quaternion(joint.pose.Orientation.x, joint.pose.Orientation.y, joint.pose.Orientation.z, joint.pose.Orientation.w);
 
-                        // b. 使用 TransformPoint 和 TransformRotation 进行最可靠的坐标系转换
-                        //    这会将相对于玩家原点的局部坐标，正确地转换到世界空间中
+                        // b. 【最终关键修正】我们只反转Z轴，来将坐标系从背后翻转到身前，同时进行一次镜像操作
+                        jointLocalPosition.z = -jointLocalPosition.z;
+
+                        // c. 由于只进行了一次镜像，旋转也需要进行镜像补偿。
+                        //    在四元数中，对一个轴进行镜像，等价于将其余两个轴的旋转分量取反。
+                        //    这里我们镜像了Z轴，所以需要反转X和Y的旋转分量。
+                        jointLocalRotation.x = -jointLocalRotation.x;
+                        jointLocalRotation.y = -jointLocalRotation.y;
+
+                        // d. 使用Unity标准函数进行世界坐标转换
                         jointObj.transform.position = playerOrigin.TransformPoint(jointLocalPosition);
-                        jointObj.transform.rotation = playerOrigin.transform.rotation * jointLocalRotation;
+                        jointObj.transform.rotation = playerOrigin.rotation * jointLocalRotation;
                     }
                     else
                     {
